@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket Resolver System</title>
+<style>
+  :root {
+    --bg: #F7F6F3; --surface: #FFFFFF; --surface2: #F1EFE8;
+    --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.18);
+    --text: #1A1A18; --text-2: #5A5A56; --text-3: #8A8A84;
+    --purple: #534AB7; --purple-light: #EEEDFE; --purple-mid: #AFA9EC;
+    --teal: #0F6E56; --teal-light: #E1F5EE;
+    --amber: #BA7517; --amber-light: #FAEEDA;
+    --red: #A32D2D; --red-light: #FCEBEB;
+    --green: #3B6D11; --green-light: #EAF3DE;
+    --teams: #6264A7; --radius: 10px; --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--text); min-height: 100vh; }
+  .app { max-width: 980px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 0.5px solid var(--border-strong); }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 36px; height: 36px; background: var(--purple); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .logo svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+  .header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .header p { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+  .api-badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border-strong); color: var(--text-3); display: flex; align-items: center; gap: 5px; cursor: pointer; background: var(--surface); font-family: inherit; }
+  .api-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .api-badge.connected .dot { background: #639922; }
+  .api-badge.connected { color: var(--green); border-color: var(--green); }
+  .steps-nav { display: flex; margin-bottom: 2rem; border: 0.5px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+  .step-tab { flex: 1; padding: 10px 8px; text-align: center; font-size: 12px; color: var(--text-3); cursor: pointer; border-right: 0.5px solid var(--border); transition: background 0.15s; }
+  .step-tab:last-child { border-right: none; }
+  .step-tab.active { background: var(--purple-light); color: var(--purple); font-weight: 500; }
+  .step-tab.done { color: var(--teal); }
+  .step-tab .step-num { display: block; font-size: 10px; margin-bottom: 2px; opacity: 0.6; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .card { background: var(--surface); border: 0.5px solid var(--border-strong); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .card-title { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-bottom: 1rem; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 4px; font-weight: 500; }
+  input[type=text], input[type=number], input[type=password], textarea, select {
+    width: 100%; padding: 9px 11px; font-size: 14px; border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-sm); background: var(--bg); color: var(--text);
+    font-family: inherit; transition: border-color 0.15s; margin-bottom: 12px;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--purple); }
+  textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; font-size: 13px; font-weight: 500; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s; border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); font-family: inherit; }
+  .btn:hover { background: var(--surface2); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--purple); color: #fff; border-color: var(--purple); }
+  .btn-primary:hover { background: #433CA0; border-color: #433CA0; }
+  .btn-danger { color: var(--red); border-color: var(--red-light); }
+  .btn-danger:hover { background: var(--red-light); }
+  .btn-success { color: var(--teal); border-color: var(--teal-light); }
+  .btn-success:hover { background: var(--teal-light); }
+  .btn-full { width: 100%; justify-content: center; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; }
+  .badge-open { background: var(--purple-light); color: var(--purple); }
+  .badge-progress { background: var(--amber-light); color: var(--amber); }
+  .badge-resolved { background: var(--green-light); color: var(--green); }
+  .badge-high { background: var(--red-light); color: var(--red); }
+  .badge-medium { background: var(--amber-light); color: var(--amber); }
+  .badge-low { background: var(--green-light); color: var(--green); }
+  .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1rem; }
+  .info-cell .lbl { font-size: 11px; color: var(--text-3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .info-cell .val { font-size: 14px; font-weight: 500; }
+  .sla-wrap { margin-bottom: 0; }
+  .sla-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+  .sla-bg { height: 6px; background: var(--surface2); border-radius: 3px; }
+  .sla-fill { height: 6px; border-radius: 3px; transition: width 0.5s ease, background 0.3s; }
+  .teams-card { border-left: 3px solid var(--teams); background: var(--surface); border-radius: 0 var(--radius) var(--radius) 0; padding: 12px 14px; margin-bottom: 10px; border-top: 0.5px solid var(--border); border-right: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border); }
+  .teams-card.nudge { border-left-color: var(--amber); }
+  .teams-card.escalate { border-left-color: var(--red); }
+  .teams-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .teams-icon { width: 22px; height: 22px; background: var(--teams); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .teams-meta { font-size: 12px; color: var(--text-3); }
+  .teams-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .teams-body { font-size: 13px; color: var(--text-2); line-height: 1.5; white-space: pre-wrap; }
+  .teams-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .score-dim { margin-bottom: 16px; }
+  .score-dim-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .score-dim-label { font-size: 13px; font-weight: 500; }
+  .score-dim-val { font-size: 13px; font-weight: 600; min-width: 36px; text-align: right; }
+  input[type=range] { width: 100%; height: 4px; border-radius: 2px; appearance: none; -webkit-appearance: none; background: var(--surface2); border: none; padding: 0; margin: 0; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.2); }
+  input[type=range]:focus { outline: none; }
+  .result-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .result-row:last-child { border-bottom: none; }
+  .result-label { font-size: 13px; color: var(--text-2); flex: 0 0 180px; }
+  .result-bar-bg { flex: 1; height: 7px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .result-bar-fill { height: 7px; border-radius: 4px; transition: width 0.6s ease; }
+  .result-num { font-size: 13px; font-weight: 600; min-width: 36px; text-align: right; }
+  .metric { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px; text-align: center; }
+  .metric .num { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+  .metric .lbl { font-size: 11px; color: var(--text-3); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .weight-note { font-size: 11px; text-align: right; margin-top: -8px; margin-bottom: 12px; }
+  .feedback-block { background: var(--purple-light); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; line-height: 1.7; color: #3C3489; }
+  .instructor-block { background: var(--surface2); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; line-height: 1.7; color: var(--text-2); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .spinner-purple { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--purple-mid); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--surface); border-radius: var(--radius); padding: 1.5rem; width: 420px; max-width: 90vw; }
+  .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--text-2); margin-bottom: 1rem; line-height: 1.6; }
+  .hidden { display: none !important; }
+  .sim-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* Suggestion panel */
+  .suggestion-panel { border: 1.5px dashed var(--purple-mid); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1rem; background: var(--purple-light); }
+  .suggestion-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .suggestion-label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--purple); text-transform: uppercase; letter-spacing: 0.06em; }
+  .suggestion-text { font-size: 13px; line-height: 1.8; color: #3C3489; white-space: pre-wrap; font-family: inherit; }
+  .suggestion-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn-use { background: var(--purple); color: #fff; border-color: var(--purple); }
+  .btn-use:hover { background: #433CA0; }
+  .suggestion-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--purple); padding: 6px 0; }
+  .weight-tag { display: inline-block; font-size: 11px; background: rgba(83,74,183,0.12); color: var(--purple); border-radius: 4px; padding: 2px 7px; margin-right: 4px; font-weight: 500; }
+
+  @media (max-width: 640px) {
+    .info-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .result-label { flex: 0 0 120px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M7 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2h-2"/><rect x="7" y="2" width="10" height="4" rx="1"/></svg>
+      </div>
+      <div>
+        <h1>Ticket Resolver System</h1>
+        <p>POC notification · SLA tracking · AI suggestion &amp; evaluation</p>
+      </div>
+    </div>
+    <button class="api-badge" id="api-badge" onclick="openApiModal()">
+      <span class="dot" id="api-dot"></span>
+      <span id="api-label">Set OpenAI key</span>
+    </button>
+  </div>
+
+  <div class="steps-nav">
+    <div class="step-tab active" id="tab-0"><span class="step-num">01</span>Create ticket</div>
+    <div class="step-tab" id="tab-1"><span class="step-num">02</span>Notification</div>
+    <div class="step-tab" id="tab-2"><span class="step-num">03</span>Resolve</div>
+    <div class="step-tab" id="tab-3"><span class="step-num">04</span>AI evaluation</div>
+  </div>
+
+  <!-- Screen 0: Create ticket -->
+  <div class="screen active" id="s0">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Ticket details</div>
+        <label>Ticket title</label>
+        <input type="text" id="f-title" value="Login page not loading for users">
+        <label>Department</label>
+        <select id="f-dept">
+          <option>IT Support</option><option>HR</option><option>Finance</option><option>Operations</option><option>Infrastructure</option>
+        </select>
+        <label>Priority</label>
+        <select id="f-priority"><option>High</option><option>Medium</option><option>Low</option></select>
+        <label>Description</label>
+        <textarea id="f-desc" style="min-height:72px">Users are unable to log in since 9 AM. Affects ~40 people across Finance and HR departments.</textarea>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Assignment</div>
+          <label>Resolver (POC)</label>
+          <input type="text" id="f-poc" value="Rajesh Kumar">
+          <label>Resolver's email / Teams ID</label>
+          <input type="text" id="f-poc-id" value="rajesh.kumar@company.com">
+          <label>Reporting manager (RP)</label>
+          <input type="text" id="f-rp" value="Priya Sharma">
+          <label>SLA deadline (hours)</label>
+          <input type="number" id="f-sla" value="4" min="1" max="72">
+        </div>
+        <div class="card">
+          <div class="card-title">Evaluation weights</div>
+          <p style="font-size:12px;color:var(--text-3);margin-bottom:14px;line-height:1.6">Set how each dimension is weighted in the AI score and suggestion. Must total 100%.</p>
+          <div class="score-dim">
+            <div class="score-dim-header"><span class="score-dim-label">Quality &amp; completeness</span><span class="score-dim-val" id="w-quality-val">30%</span></div>
+            <input type="range" min="0" max="100" step="5" value="30" id="w-quality" oninput="updateWeights()" style="accent-color:#534AB7">
+          </div>
+          <div class="score-dim">
+            <div class="score-dim-header"><span class="score-dim-label">Tone &amp; professionalism</span><span class="score-dim-val" id="w-tone-val">20%</span></div>
+            <input type="range" min="0" max="100" step="5" value="20" id="w-tone" oninput="updateWeights()" style="accent-color:#0F6E56">
+          </div>
+          <div class="score-dim">
+            <div class="score-dim-header"><span class="score-dim-label">Root cause addressed</span><span class="score-dim-val" id="w-root-val">30%</span></div>
+            <input type="range" min="0" max="100" step="5" value="30" id="w-root" oninput="updateWeights()" style="accent-color:#BA7517">
+          </div>
+          <div class="score-dim">
+            <div class="score-dim-header"><span class="score-dim-label">SLA acknowledgment</span><span class="score-dim-val" id="w-sla-val">20%</span></div>
+            <input type="range" min="0" max="100" step="5" value="20" id="w-sla" oninput="updateWeights()" style="accent-color:#A32D2D">
+          </div>
+          <div class="weight-note" id="weight-total-note" style="color:var(--green)">Total: 100% ✓</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="submitTicket()">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      Submit ticket &amp; notify resolver
+    </button>
+  </div>
+
+  <!-- Screen 1: Notification -->
+  <div class="screen" id="s1">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div style="font-size:11px;color:var(--text-3);margin-bottom:3px" id="t-id-disp"></div>
+          <div style="font-size:17px;font-weight:600;letter-spacing:-0.01em" id="t-title-disp"></div>
+        </div>
+        <span class="badge badge-open" id="t-status-badge">Open</span>
+      </div>
+      <div class="info-grid">
+        <div class="info-cell"><div class="lbl">Department</div><div class="val" id="t-dept-disp"></div></div>
+        <div class="info-cell"><div class="lbl">Priority</div><div id="t-priority-disp"></div></div>
+        <div class="info-cell"><div class="lbl">Assigned to</div><div class="val" id="t-poc-disp"></div></div>
+        <div class="info-cell"><div class="lbl">SLA</div><div class="val" id="t-sla-disp"></div></div>
+      </div>
+      <div class="sla-wrap">
+        <div class="sla-header"><span>SLA progress</span><span id="sla-label-pct">0%</span></div>
+        <div class="sla-bg"><div class="sla-fill" id="sla-fill" style="width:0%;background:#639922"></div></div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px" id="sla-remain"></div>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Teams notification sent to resolver</div>
+    <div class="teams-card">
+      <div class="teams-header">
+        <div class="teams-icon">T</div>
+        <div class="teams-meta">Ticket Bot → <strong id="notif-poc-name"></strong></div>
+      </div>
+      <div class="teams-title" id="notif-title"></div>
+      <div class="teams-body" id="notif-body"></div>
+      <div class="teams-actions">
+        <button class="btn btn-sm btn-success" onclick="acceptTicket()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Accept &amp; begin
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="doEscalate('Manually escalated by resolver')">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          Escalate now
+        </button>
+      </div>
+    </div>
+    <div class="sim-row">
+      <button class="btn btn-sm" onclick="simTime(50)">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Simulate 50% SLA elapsed
+      </button>
+      <button class="btn btn-sm btn-danger" onclick="simTime(100)">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Simulate SLA breach (100%)
+      </button>
+    </div>
+    <div id="nudge-area" style="margin-top:12px"></div>
+  </div>
+
+  <!-- Screen 2: Resolve -->
+  <div class="screen" id="s2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:600" id="r-title-disp"></div>
+        <span class="badge badge-progress">In progress</span>
+      </div>
+      <div class="sla-wrap">
+        <div class="sla-header"><span>SLA</span><span id="sla-label-pct2">0%</span></div>
+        <div class="sla-bg"><div class="sla-fill" id="sla-fill2" style="width:0%;background:#639922"></div></div>
+      </div>
+    </div>
+
+    <!-- AI Suggestion panel -->
+    <div class="suggestion-panel">
+      <div class="suggestion-header">
+        <div class="suggestion-label">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+          AI-suggested reply
+        </div>
+        <button class="btn btn-sm" id="regen-btn" onclick="generateSuggestion()" style="font-size:11px;padding:4px 10px;color:var(--purple);border-color:var(--purple-mid);background:transparent">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M5.64 5.64A9 9 0 1120.49 9"/></svg>
+          Regenerate
+        </button>
+      </div>
+      <div id="suggestion-content">
+        <div class="suggestion-loading" id="suggestion-loading">
+          <span class="spinner-purple"></span> Generating ideal reply based on your weights…
+        </div>
+        <div class="suggestion-text" id="suggestion-text" style="display:none"></div>
+      </div>
+      <div class="suggestion-actions" id="suggestion-actions" style="display:none">
+        <button class="btn btn-sm btn-use" onclick="useSuggestion()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Use this reply
+        </button>
+        <button class="btn btn-sm" onclick="editSuggestion()" style="color:var(--purple);border-color:var(--purple-mid)">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit then submit
+        </button>
+        <button class="btn btn-sm" onclick="startFresh()" style="color:var(--text-3)">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Start from scratch
+        </button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:#7F77DD;line-height:1.8">
+        Generated for weights:
+        <span class="weight-tag" id="sg-wq-tag"></span>
+        <span class="weight-tag" id="sg-wt-tag"></span>
+        <span class="weight-tag" id="sg-wr-tag"></span>
+        <span class="weight-tag" id="sg-ws-tag"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div class="card-title" style="margin-bottom:0">Your resolution comment</div>
+        <span style="font-size:11px;color:var(--text-3)" id="comment-source-label"></span>
+      </div>
+      <p style="font-size:12px;color:var(--text-3);margin-bottom:10px;margin-top:8px;line-height:1.6">Edit the suggestion or write your own below. This is what will be evaluated.</p>
+      <textarea id="resolver-comment" style="min-height:130px" placeholder="Write your resolution comment, or use the AI suggestion above…"></textarea>
+      <button class="btn btn-primary btn-full" id="eval-btn" onclick="submitComment()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>
+        Evaluate with AI &amp; resolve
+      </button>
+      <div style="margin-top:8px;text-align:center;font-size:11px;color:var(--text-3)">
+        Using <span id="eval-mode">heuristic scoring</span> — <a href="#" onclick="openApiModal();return false" style="color:var(--purple)">add OpenAI key</a> for GPT-4o mini
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 3: Evaluation results -->
+  <div class="screen" id="s3">
+    <div class="grid-2" style="margin-bottom:12px">
+      <div class="metric"><div class="num" id="overall-score">—</div><div class="lbl">Overall score</div></div>
+      <div class="metric"><div class="num" id="verdict-text" style="font-size:18px">—</div><div class="lbl">Verdict</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Dimension scores</div>
+      <div id="result-rows"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Weights applied</div>
+      <div id="weights-applied" style="font-size:12px;color:var(--text-2);line-height:2"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">AI feedback to resolver</div>
+      <div class="feedback-block" id="ai-feedback">—</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Instructor / manager view</div>
+      <div class="instructor-block" id="instructor-note">—</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+      <button class="btn" onclick="resetAll()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+        New ticket
+      </button>
+      <button class="btn" onclick="goToResolve()">Revise comment</button>
+    </div>
+  </div>
+
+  <!-- Screen: Escalated -->
+  <div class="screen" id="s-esc">
+    <div class="card" style="border-left:3px solid var(--red);border-radius:0 var(--radius) var(--radius) 0">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <svg width="18" height="18" fill="none" stroke="#A32D2D" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01"/></svg>
+        <span style="font-size:15px;font-weight:600;color:var(--red)">Ticket escalated</span>
+      </div>
+      <div class="info-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="info-cell"><div class="lbl">Ticket</div><div class="val" id="esc-title"></div></div>
+        <div class="info-cell"><div class="lbl">Escalated to</div><div class="val" id="esc-rp"></div></div>
+        <div class="info-cell"><div class="lbl">Reason</div><div class="val" id="esc-reason"></div></div>
+        <div class="info-cell"><div class="lbl">Original resolver</div><div class="val" id="esc-poc"></div></div>
+      </div>
+    </div>
+    <div class="teams-card escalate" style="border-left-color:var(--red)">
+      <div class="teams-header">
+        <div class="teams-icon" style="background:var(--red)">T</div>
+        <div class="teams-meta">Ticket Bot → <strong id="esc-rp-name"></strong> (manager)</div>
+      </div>
+      <div class="teams-title">⚠ Escalation: Action required</div>
+      <div class="teams-body" id="esc-body"></div>
+    </div>
+    <button class="btn" style="margin-top:8px" onclick="resetAll()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M5.64 5.64A9 9 0 1120.49 9"/></svg>
+      New ticket
+    </button>
+  </div>
+</div>
+
+<!-- API Key Modal -->
+<div class="modal-overlay hidden" id="api-modal">
+  <div class="modal">
+    <h3>OpenAI API key</h3>
+    <p>Stored in this browser session only. Used directly for GPT-4o mini evaluation and AI reply suggestion — never logged or sent elsewhere.</p>
+    <label>API key</label>
+    <input type="password" id="api-key-input" placeholder="sk-...">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeApiModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveApiKey()">Save key</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let ticket = {};
+let openaiKey = '';
+let weights = { quality: 30, tone: 20, root: 30, sla: 20 };
+let currentSuggestion = '';
+
+function updateWeights() {
+  const ids = ['quality','tone','root','sla'];
+  let total = 0;
+  ids.forEach(k => {
+    const v = parseInt(document.getElementById('w-'+k).value);
+    weights[k] = v;
+    total += v;
+    document.getElementById('w-'+k+'-val').textContent = v + '%';
+  });
+  const note = document.getElementById('weight-total-note');
+  note.textContent = 'Total: ' + total + '%' + (total === 100 ? ' ✓' : ' — must equal 100');
+  note.style.color = total === 100 ? 'var(--green)' : 'var(--red)';
+}
+
+function openApiModal() { document.getElementById('api-modal').classList.remove('hidden'); }
+function closeApiModal() { document.getElementById('api-modal').classList.add('hidden'); }
+function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if(!k.startsWith('sk-')) { alert('Please enter a valid OpenAI API key starting with sk-'); return; }
+  openaiKey = k;
+  document.getElementById('api-badge').classList.add('connected');
+  document.getElementById('api-label').textContent = 'OpenAI connected';
+  document.getElementById('eval-mode').textContent = 'GPT-4o mini';
+  closeApiModal();
+}
+
+function showScreen(id) {
+  ['s0','s1','s2','s3','s-esc'].forEach(s => document.getElementById(s).classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function markTabs(activeIdx) {
+  [0,1,2,3].forEach(i => {
+    const t = document.getElementById('tab-'+i);
+    t.classList.remove('active','done');
+    if(i < activeIdx) t.classList.add('done');
+    else if(i === activeIdx) t.classList.add('active');
+  });
+}
+
+function submitTicket() {
+  const total = weights.quality + weights.tone + weights.root + weights.sla;
+  if(total !== 100) { alert('Evaluation weights must total 100%. Current total: ' + total + '%'); return; }
+  ticket = {
+    id: 'TKT-' + (1000 + Math.floor(Math.random()*9000)),
+    title: document.getElementById('f-title').value.trim() || 'Untitled',
+    dept: document.getElementById('f-dept').value,
+    priority: document.getElementById('f-priority').value,
+    desc: document.getElementById('f-desc').value.trim(),
+    poc: document.getElementById('f-poc').value.trim() || 'Resolver',
+    pocId: document.getElementById('f-poc-id').value.trim(),
+    rp: document.getElementById('f-rp').value.trim() || 'Manager',
+    sla: parseInt(document.getElementById('f-sla').value) || 4,
+    slaElapsed: 0,
+    weights: {...weights}
+  };
+  document.getElementById('t-id-disp').textContent = ticket.id;
+  document.getElementById('t-title-disp').textContent = ticket.title;
+  document.getElementById('t-dept-disp').textContent = ticket.dept;
+  document.getElementById('t-poc-disp').textContent = ticket.poc;
+  document.getElementById('t-sla-disp').textContent = ticket.sla + 'h';
+  document.getElementById('r-title-disp').textContent = ticket.title;
+  const pb = {High:'badge-high',Medium:'badge-medium',Low:'badge-low'}[ticket.priority];
+  document.getElementById('t-priority-disp').innerHTML = '<span class="badge '+pb+'">'+ticket.priority+'</span>';
+  setSLA(0);
+  document.getElementById('notif-poc-name').textContent = ticket.poc;
+  document.getElementById('notif-title').textContent = '🎫 New ticket assigned — ' + ticket.title;
+  document.getElementById('notif-body').textContent = 'Priority: ' + ticket.priority + '  ·  Dept: ' + ticket.dept + '  ·  SLA: ' + ticket.sla + 'h\n' + ticket.desc;
+  markTabs(1);
+  showScreen('s1');
+}
+
+function setSLA(pct) {
+  pct = Math.min(100, pct);
+  ticket.slaElapsed = pct;
+  const color = pct < 50 ? '#3B6D11' : pct < 100 ? '#BA7517' : '#A32D2D';
+  ['sla-fill','sla-fill2'].forEach(id => { const el=document.getElementById(id); if(el){el.style.width=pct+'%';el.style.background=color;} });
+  ['sla-label-pct','sla-label-pct2'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=pct+'%'; });
+  const rem = Math.round(ticket.sla*(1-pct/100));
+  const el = document.getElementById('sla-remain');
+  if(el) el.textContent = pct<100 ? rem+'h remaining of '+ticket.sla+'h SLA' : 'SLA breached — '+ticket.sla+'h limit exceeded';
+}
+
+function simTime(pct) {
+  setSLA(pct);
+  if(pct === 50) {
+    const qs = ['Have you identified the root cause yet?','Is anything blocking you? Need access or support?','Can you give a brief status update?'];
+    let html = '<div class="teams-card nudge"><div class="teams-header"><div class="teams-icon" style="background:var(--amber)">T</div><div class="teams-meta">Ticket Bot → <strong>'+ticket.poc+'</strong> (nudge at 50% SLA)</div></div><div class="teams-title">⏱ Halfway through your SLA on: '+ticket.title+'</div><div class="teams-body">';
+    qs.forEach(q => { html += '<div style="padding:4px 0 4px 10px;border-left:2px solid var(--amber);margin-bottom:6px;color:var(--text-2)">'+q+'</div>'; });
+    html += '</div></div>';
+    document.getElementById('nudge-area').innerHTML = html;
+  } else if(pct === 100) {
+    doEscalate('SLA breached — ticket unresolved after '+ticket.sla+' hours');
+  }
+}
+
+function acceptTicket() {
+  document.getElementById('t-status-badge').textContent = 'In progress';
+  document.getElementById('t-status-badge').className = 'badge badge-progress';
+  markTabs(2);
+  showScreen('s2');
+  // Reset suggestion state and auto-generate
+  currentSuggestion = '';
+  document.getElementById('resolver-comment').value = '';
+  document.getElementById('comment-source-label').textContent = '';
+  generateSuggestion();
+}
+
+function goToResolve() {
+  markTabs(2);
+  showScreen('s2');
+}
+
+function doEscalate(reason) {
+  document.getElementById('esc-title').textContent = ticket.title;
+  document.getElementById('esc-rp').textContent = ticket.rp;
+  document.getElementById('esc-poc').textContent = ticket.poc;
+  document.getElementById('esc-reason').textContent = reason;
+  document.getElementById('esc-rp-name').textContent = ticket.rp;
+  document.getElementById('esc-body').textContent = ticket.id+' ("'+ticket.title+'") assigned to '+ticket.poc+' — '+reason+'. Immediate action required.';
+  showScreen('s-esc');
+}
+
+// ─── Suggestion generation ────────────────────────────────────────────────────
+async function generateSuggestion() {
+  const w = ticket.weights || weights;
+  document.getElementById('suggestion-loading').style.display = 'flex';
+  document.getElementById('suggestion-text').style.display = 'none';
+  document.getElementById('suggestion-actions').style.display = 'none';
+  document.getElementById('regen-btn').disabled = true;
+
+  // Update weight tags
+  document.getElementById('sg-wq-tag').textContent = 'Quality ' + w.quality + '%';
+  document.getElementById('sg-wt-tag').textContent = 'Tone ' + w.tone + '%';
+  document.getElementById('sg-wr-tag').textContent = 'Root cause ' + w.root + '%';
+  document.getElementById('sg-ws-tag').textContent = 'SLA ack ' + w.sla + '%';
+
+  try {
+    let suggestion;
+    if(openaiKey) {
+      suggestion = await generateWithOpenAI(w);
+    } else {
+      suggestion = generateHeuristic(w);
+    }
+    currentSuggestion = suggestion;
+    document.getElementById('suggestion-text').textContent = suggestion;
+    document.getElementById('suggestion-text').style.display = 'block';
+    document.getElementById('suggestion-loading').style.display = 'none';
+    document.getElementById('suggestion-actions').style.display = 'flex';
+  } catch(e) {
+    currentSuggestion = generateHeuristic(w);
+    document.getElementById('suggestion-text').textContent = currentSuggestion;
+    document.getElementById('suggestion-text').style.display = 'block';
+    document.getElementById('suggestion-loading').style.display = 'none';
+    document.getElementById('suggestion-actions').style.display = 'flex';
+  }
+  document.getElementById('regen-btn').disabled = false;
+}
+
+async function generateWithOpenAI(w) {
+  const dominant = Object.entries(w).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' ('+v+'%)').join(', ');
+  const prompt = `You are a senior IT support specialist. Write an ideal ticket resolution comment for the following ticket.
+
+Ticket: "${ticket.title}"
+Priority: ${ticket.priority}
+Department: ${ticket.dept}
+SLA: ${ticket.sla}h (${ticket.slaElapsed}% elapsed)
+Description: ${ticket.desc}
+
+The reply must be optimized for these evaluation criteria (in order of priority by weight):
+- Quality & completeness: ${w.quality}% weight
+- Tone & professionalism: ${w.tone}% weight
+- Root cause addressed: ${w.root}% weight
+- SLA acknowledgment: ${w.sla}% weight
+
+Write a single, natural resolution comment (NOT a template, NOT headers, just flowing professional prose) that would score very high on all four dimensions, with the most emphasis on the highest-weighted ones. Keep it between 80-130 words. Do not include any preamble, labels, or explanation — just the comment itself.`;
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + openaiKey },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini', max_tokens: 300,
+      messages: [
+        { role: 'system', content: 'You write professional IT support resolution comments. Respond with only the comment text, no labels, no preamble.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+  if(!res.ok) throw new Error('OpenAI API error: ' + res.status);
+  const d = await res.json();
+  return d.choices[0].message.content.trim();
+}
+
+function generateHeuristic(w) {
+  const now = new Date();
+  const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  const dominant = Object.entries(w).sort((a,b)=>b[1]-a[1])[0][0];
+
+  let parts = [];
+
+  // Root cause section (if weight >= 25)
+  if(w.root >= 25) {
+    parts.push('Root cause identified: ' + ticket.title.toLowerCase() + ' was traced to a misconfiguration in the ' + ticket.dept + ' service layer, likely introduced during the last maintenance window.');
+  } else {
+    parts.push('Issue investigated and resolved for ' + ticket.title.toLowerCase() + '.');
+  }
+
+  // Fix detail (quality section)
+  if(w.quality >= 25) {
+    parts.push('Resolution steps taken: (1) Isolated the affected service, (2) applied the corrective configuration change, (3) restarted the dependent processes, and (4) verified functionality with affected users. All ' + ticket.dept + ' users confirmed access is restored.');
+  } else {
+    parts.push('The issue has been fixed and verified with end users.');
+  }
+
+  // SLA acknowledgment
+  if(w.sla >= 20) {
+    const elapsed = ticket.slaElapsed;
+    if(elapsed <= 50) {
+      parts.push('Resolution completed well within the ' + ticket.sla + '-hour SLA window at ' + timeStr + '.');
+    } else {
+      parts.push('Resolution completed at ' + timeStr + ' — within the ' + ticket.sla + '-hour SLA. Monitoring will continue for the next 2 hours to ensure stability.');
+    }
+  }
+
+  // Tone closing (if weight >= 20)
+  if(w.tone >= 20) {
+    parts.push('Apologies for any inconvenience caused. Please do not hesitate to reopen if the issue recurs.');
+  }
+
+  return parts.join(' ');
+}
+
+// ─── Suggestion actions ───────────────────────────────────────────────────────
+function useSuggestion() {
+  document.getElementById('resolver-comment').value = currentSuggestion;
+  document.getElementById('comment-source-label').textContent = 'using AI suggestion';
+  document.getElementById('resolver-comment').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function editSuggestion() {
+  document.getElementById('resolver-comment').value = currentSuggestion;
+  document.getElementById('comment-source-label').textContent = 'editing suggestion';
+  document.getElementById('resolver-comment').focus();
+  document.getElementById('resolver-comment').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function startFresh() {
+  document.getElementById('resolver-comment').value = '';
+  document.getElementById('comment-source-label').textContent = 'writing from scratch';
+  document.getElementById('resolver-comment').focus();
+  document.getElementById('resolver-comment').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ─── Evaluation ───────────────────────────────────────────────────────────────
+async function submitComment() {
+  const comment = document.getElementById('resolver-comment').value.trim();
+  if(!comment) { alert('Please write a resolution comment before evaluating.'); return; }
+  const btn = document.getElementById('eval-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Evaluating…';
+  let scores;
+  try {
+    scores = openaiKey ? await evalWithOpenAI(comment) : evalHeuristic(comment);
+    showResults(scores);
+  } catch(e) {
+    scores = evalHeuristic(comment);
+    showResults(scores);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg> Evaluate with AI &amp; resolve';
+}
+
+async function evalWithOpenAI(comment) {
+  const w = ticket.weights;
+  const prompt = `You are an IT support quality evaluator. Evaluate this resolver comment for ticket: "${ticket.title}" (Priority: ${ticket.priority}, Dept: ${ticket.dept}, SLA: ${ticket.sla}h, Elapsed: ${ticket.slaElapsed}%).
+
+Comment: "${comment}"
+
+Score each on 0-100:
+1. quality: Quality & completeness (weight: ${w.quality}%)
+2. tone: Tone & professionalism (weight: ${w.tone}%)
+3. root: Root cause addressed (weight: ${w.root}%)
+4. sla: SLA acknowledgment (weight: ${w.sla}%)
+
+Also provide:
+- feedback: 2-3 sentences of specific, constructive feedback for the resolver
+- instructor: 1-2 sentences summary for the manager/instructor
+
+Respond ONLY with valid JSON, no markdown:
+{"quality":85,"tone":90,"root":70,"sla":80,"feedback":"...","instructor":"..."}`;
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + openaiKey },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini', max_tokens: 500,
+      messages: [
+        { role: 'system', content: 'You are an IT support quality evaluator. Always respond with valid JSON only, no markdown.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+  if(!res.ok) throw new Error('OpenAI error: ' + res.status);
+  const d = await res.json();
+  let text = d.choices[0].message.content.trim().replace(/```json|```/g,'').trim();
+  return JSON.parse(text);
+}
+
+function evalHeuristic(comment) {
+  const lower = comment.toLowerCase();
+  const words = comment.split(/\s+/).length;
+  const hasRoot = /cause|reason|why|because|due to|root|found that|identified|issue was|problem was|traced/.test(lower);
+  const hasFix = /fixed|resolved|updated|changed|restarted|cleared|reset|deployed|applied|configured|rolled back|reverted|corrected/.test(lower);
+  const hasSLA = /within|on time|sla|hours?|urgently|asap|immediately|as of|confirmed|completed/.test(lower);
+  const isPro = !/lol|haha|dunno|idk|whatever|nvm/.test(lower);
+  const isDetailed = words >= 20;
+  const hasTech = /server|database|api|cache|config|memory|cpu|network|dns|auth|deployment|service|log|error|exception|timeout|version|process/.test(lower);
+
+  let quality = Math.min(100, 35 + (hasFix?25:0) + (isDetailed?20:0) + (hasTech?20:0));
+  let tone = Math.min(100, 50 + (isPro?25:0) + (words>15?15:0) + (comment.includes('.')?10:0));
+  let root = Math.min(100, 20 + (hasRoot?55:0) + (hasTech?25:0));
+  let sla = Math.min(100, 35 + (hasSLA?45:0) + (ticket.slaElapsed<=50?20:0));
+
+  let feedback = '';
+  if(!hasRoot) feedback += 'Root cause not clearly explained — add a sentence on what caused the issue. ';
+  if(!hasFix) feedback += 'Specific fix not described — be explicit about the action taken. ';
+  if(!isDetailed) feedback += 'Comment is too brief — more detail helps the team and future reference. ';
+  if(!hasSLA) feedback += 'No reference to timing or urgency — mention when the fix was applied. ';
+  if(!feedback) feedback = 'Good resolution comment — clear, professional, and informative.';
+
+  const overall = Math.round((quality*weights.quality + tone*weights.tone + root*weights.root + sla*weights.sla)/100);
+  const instructor = 'Score: '+overall+'/100. Root cause: '+(hasRoot?'addressed':'missing')+'. Fix described: '+(hasFix?'yes':'missing')+'. Words: '+words+'. '+(overall>=80?'Strong performance.':overall>=60?'Minor improvement needed.':'Needs coaching on documentation.');
+
+  return { quality, tone, root, sla, feedback: feedback.trim(), instructor };
+}
+
+function showResults(scores) {
+  const w = ticket.weights;
+  const overall = Math.round((scores.quality*w.quality + scores.tone*w.tone + scores.root*w.root + scores.sla*w.sla)/100);
+  document.getElementById('overall-score').textContent = overall + ' / 100';
+  const verdict = overall>=80 ? 'Strong ✓' : overall>=60 ? 'Acceptable ~' : 'Needs work ✗';
+  const vcol = overall>=80 ? 'var(--green)' : overall>=60 ? 'var(--amber)' : 'var(--red)';
+  const vEl = document.getElementById('verdict-text');
+  vEl.textContent = verdict; vEl.style.color = vcol;
+
+  const dims = [
+    {label:'Quality & completeness', key:'quality', color:'#534AB7', w:w.quality},
+    {label:'Tone & professionalism',  key:'tone',    color:'#0F6E56', w:w.tone},
+    {label:'Root cause addressed',    key:'root',    color:'#BA7517', w:w.root},
+    {label:'SLA acknowledgment',      key:'sla',     color:'#A32D2D', w:w.sla},
+  ];
+  document.getElementById('result-rows').innerHTML = dims.map(d =>
+    `<div class="result-row">
+      <div class="result-label">${d.label}</div>
+      <div class="result-bar-bg"><div class="result-bar-fill" style="width:${scores[d.key]}%;background:${d.color}"></div></div>
+      <div class="result-num">${scores[d.key]}</div>
+    </div>`
+  ).join('');
+
+  document.getElementById('weights-applied').innerHTML = dims.map(d =>
+    `<span style="margin-right:16px"><strong>${d.label}</strong> — weight <strong>${d.w}%</strong>, raw score <strong>${scores[d.key]}</strong>, contribution <strong>${Math.round(scores[d.key]*d.w/100)}</strong></span>`
+  ).join('<br>');
+
+  document.getElementById('ai-feedback').textContent = scores.feedback;
+  document.getElementById('instructor-note').textContent = scores.instructor;
+  markTabs(3);
+  showScreen('s3');
+}
+
+function resetAll() {
+  ticket = {};
+  currentSuggestion = '';
+  document.getElementById('resolver-comment').value = '';
+  document.getElementById('nudge-area').innerHTML = '';
+  document.getElementById('comment-source-label').textContent = '';
+  markTabs(0);
+  showScreen('s0');
+}
+</script>
+</body>
+</html>
